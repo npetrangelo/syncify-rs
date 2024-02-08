@@ -13,27 +13,26 @@
 //! who don't want to deal with it.
 
 use proc_macro::TokenStream;
-use quote::{quote, quote_spanned};
-use syn::{Expr, ItemFn, parse_macro_input, Stmt};
-use syn::spanned::Spanned;
+use quote::quote;
+use syn::{Attribute, Expr, ItemFn, parse_macro_input, Stmt};
 
 #[proc_macro_attribute]
 pub fn syncify(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(item as ItemFn);
-    let awaits = ast.block.stmts.iter_mut().filter_map(|&mut stmt| match stmt {
-        Stmt::Expr(Expr::Await(a), _) => Some(a),
-        _ => None
-    });
-    for mut a in awaits {
-        let f = *a.base;
-        let f_span = f.span();
-        let newline = quote_spanned! {f_span=>
-            futures::executor::block_on(#f)
-        };
-        let newline = newline.into();
-        a.base = Box::new(parse_macro_input!(newline as Expr));
-    }
-    eprintln!("{:#?}", awaits.collect::<Vec<_>>());
+    ast.block.stmts = ast.block.stmts.iter().map(|&stmt| {
+        match stmt {
+            Stmt::Expr(Expr::Await(a), _) => {
+                let f = *a.base;
+                let expanded = quote! {
+                    futures::executor::block_on(#f);
+                };
+                let expanded = expanded.into();
+                parse_macro_input!(expanded as Stmt)
+            },
+            a => a,
+        }
+    }).collect();
+    eprintln!("{:#?}", ast);
     let expanded = quote! {
         #ast
     };
