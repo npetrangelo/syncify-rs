@@ -24,7 +24,7 @@ pub fn syncify(_attr: TokenStream, item: TokenStream) -> TokenStream {
             Stmt::Expr(Expr::Await(a), s) => {
                 let f = &a.base;
                 let expanded = parse_quote! {
-                    futures::executor::block_on(#f);
+                    futures::executor::block_on(#f)
                 };
                 Stmt::Expr(Expr::Call(expanded), *s)
             },
