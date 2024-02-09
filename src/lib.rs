@@ -14,23 +14,21 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{Expr, ExprCall, ItemFn, parse_macro_input, Stmt};
+use syn::{Expr, ItemFn, parse_macro_input, parse_quote, Stmt};
 
 #[proc_macro_attribute]
 pub fn syncify(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(item as ItemFn);
-    ast.block.stmts = ast.block.stmts.iter().map(|&stmt| -> Stmt {
+    ast.block.stmts = ast.block.stmts.iter().map(|stmt| -> Stmt {
         match stmt {
             Stmt::Expr(Expr::Await(a), s) => {
-                let f = *a.base;
-                let expanded = quote! {
+                let f = &a.base;
+                let expanded = parse_quote! {
                     futures::executor::block_on(#f);
                 };
-                let expanded: TokenStream = expanded.into();
-                let expanded = parse_macro_input!(expanded as ExprCall);
-                Stmt::Expr(Expr::Call(expanded), s)
+                Stmt::Expr(Expr::Call(expanded), *s)
             },
-            a => a,
+            a => a.clone(),
         }
     }).collect::<Vec<Stmt>>();
     eprintln!("{:#?}", ast);
